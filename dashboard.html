@@ -23,7 +23,7 @@
             </div>
             <div class="metric-box">
                 <p>Total Power Used (kW)</p>
-                <div class="metric-value" id="total-power-used">0.0</div>
+                <div class="metric-value" id="total-power-used">0.000</div>
             </div>
         </div>
 
@@ -47,7 +47,7 @@
     </div>
 
     <script>
-        // *** 1. YOUR FIREBASE CONFIGURATION (Integrated) ***
+        // *** 1. YOUR FIREBASE CONFIGURATION ***
         const firebaseConfig = {
           apiKey: "AIzaSyBEcWgxOWRVKYO6tGCkUtEwPM-yrtOuoOY",
           authDomain: "evchargecontrol.firebaseapp.com",
@@ -63,44 +63,25 @@
         firebase.initializeApp(firebaseConfig);
 
         const database = firebase.database();
-
-        // --- 2. LIVE UPDATES FOR CHARGER STATUS & POWER (The 'chargers' Node) ---
-        const chargersRef = database.ref('chargers');
-        
-        chargersRef.on('value', (snapshot) => {
-            const chargersData = snapshot.val();
-            let onlineCount = 0;
-            let totalPower = 0;
-
-            if (chargersData) {
-                // Loop through all charger objects
-                Object.values(chargersData).forEach(charger => {
-                    if (charger.status === 'online') {
-                        onlineCount++;
-                        // We assume all online chargers are drawing their full power for this demo
-                        totalPower += charger.power_kW; 
-                    }
-                });
-            }
-
-            // Update the HTML elements
-            document.getElementById('chargers-online-count').textContent = onlineCount;
-            document.getElementById('total-power-used').textContent = totalPower.toFixed(1);
-        });
-
-
-        // --- 3. LIVE UPDATES FOR CHARGING REQUESTS (The 'requests' Node) ---
         const requestsRef = database.ref('requests');
         const sessionList = document.getElementById('charging-sessions-list');
 
-        // 'on' function creates a REAL-TIME listener
+        let powerUpdateInterval; // Global variable to hold the refresh interval ID
+        
+        // --- LIVE UPDATES FOR CHARGING REQUESTS & METRICS ---
         requestsRef.on('value', (snapshot) => {
             const requestsData = snapshot.val();
             sessionList.innerHTML = ''; // Clear the current list
+            let requestsArray = [];
+
+            // Clear any existing interval to prevent multiple running timers
+            if (powerUpdateInterval) {
+                clearInterval(powerUpdateInterval);
+            }
 
             if (requestsData) {
                 // Convert object to array, reverse it so the newest session is at the top.
-                const requestsArray = Object.entries(requestsData).reverse(); 
+                requestsArray = Object.entries(requestsData).reverse(); 
 
                 requestsArray.forEach(([key, request]) => {
                     // Create a new row (<tr>) for each request
@@ -115,16 +96,63 @@
                     `;
                 });
             }
+            
+            // Update the metrics immediately when the list changes
+            updateMetrics(requestsData);
+
+            // Start a new power update interval ONLY if there are active sessions
+            if (requestsArray.length > 0) {
+                // Set interval to update metrics every 1 second
+                powerUpdateInterval = setInterval(() => {
+                    // Pass the current data to the update function
+                    updateMetrics(requestsData); 
+                }, 1000); // 1000 milliseconds = 1 second
+            }
         });
+
+        
+        /**
+         * Function to calculate and update the dynamic metrics (Online Count & Power Used)
+         * This function is run every time the database updates AND every 1 second (if active).
+         */
+        function updateMetrics(requestsData) {
+            let onlineCount = 0;
+            let totalPower = 0;
+            const currentTime = new Date();
+            const POWER_RATE_KW_PER_SECOND = 0.001; // 0.001 kW consumed every second
+
+            if (requestsData) {
+                onlineCount = Object.keys(requestsData).length;
+                
+                Object.values(requestsData).forEach(request => {
+                    // Convert the stored start_time string back into a Date object
+                    const startTime = new Date(request.start_time); 
+                    
+                    // Calculate elapsed time in milliseconds
+                    const timeElapsedMs = currentTime.getTime() - startTime.getTime();
+                    
+                    // Convert milliseconds to seconds (timeElapsedMs / 1000)
+                    const timeElapsedSeconds = timeElapsedMs / 1000;
+                    
+                    // Calculate cumulative power used for this session
+                    const sessionPowerUsed = timeElapsedSeconds * POWER_RATE_KW_PER_SECOND;
+                    
+                    totalPower += sessionPowerUsed;
+                });
+            }
+
+            // Update the HTML elements
+            document.getElementById('chargers-online-count').textContent = onlineCount;
+            document.getElementById('total-power-used').textContent = totalPower.toFixed(3); // Show 3 decimal places
+        }
+
 
         // Function to simulate ending a session by removing the data
         function endSession(key) {
              if (confirm("Are you sure you want to end this session?")) {
-                // Deletes the entry from the Firebase 'requests' node
-                database.ref('requests/' + key).remove() 
+                database.ref('requests/' + key).remove()
                     .then(() => {
                         console.log("Session ended and data removed.");
-                        // The dashboard updates automatically due to the 'requestsRef.on' listener!
                     })
                     .catch((error) => {
                         console.error("Failed to remove session: ", error);
