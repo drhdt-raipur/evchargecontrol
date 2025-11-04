@@ -32,7 +32,7 @@
     </div>
 
     <script>
-        // *** 1. YOUR FIREBASE CONFIGURATION (Integrated) ***
+        // *** YOUR FIREBASE CONFIGURATION ***
         const firebaseConfig = {
           apiKey: "AIzaSyBEcWgxOWRVKYO6tGCkUtEwPM-yrtOuoOY",
           authDomain: "evchargecontrol.firebaseapp.com",
@@ -44,7 +44,7 @@
           measurementId: "G-NKKTKNPYPW"
         };
         
-        // Initialize Firebase (using Version 8 global 'firebase' object)
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
 
         const database = firebase.database();
@@ -56,7 +56,7 @@
 
             const vehicleNumber = document.getElementById('vehicle_number').value.toUpperCase().trim();
             const amountPaid = parseFloat(document.getElementById('amount_paid').value);
-            // Using a simple date string that is easy to read
+            // Get current time in Indian Standard Time (IST)
             const startTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }); 
 
             if (vehicleNumber && amountPaid) {
