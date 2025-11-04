@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Charging - Start Session</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <header>
+        <h1>⚡ Start New Charging Session</h1>
+        <p>This page sends data to the live dashboard.</p>
+    </header>
+    <div class="container">
+        <form id="charging-form">
+            <div class="form-group">
+                <label for="vehicle_number">Vehicle Number (e.g., MH01AB1234):</label>
+                <input type="text" id="vehicle_number" required>
+            </div>
+            <div class="form-group">
+                <label for="amount_paid">Amount to Pay (₹):</label>
+                <input type="number" id="amount_paid" min="10" required>
+            </div>
+            <button type="submit">Start Charging (Submit)</button>
+        </form>
+        <p id="message" style="margin-top: 20px; color: green;"></p>
+        <hr>
+        <p>See the live data on the <a href="dashboard.html">Dashboard Page</a></p>
+    </div>
+
+    <script>
+        // *** 1. YOUR FIREBASE CONFIGURATION (Integrated) ***
+        const firebaseConfig = {
+          apiKey: "AIzaSyBEcWgxOWRVKYO6tGCkUtEwPM-yrtOuoOY",
+          authDomain: "evchargecontrol.firebaseapp.com",
+          databaseURL: "https://evchargecontrol-default-rtdb.firebaseio.com",
+          projectId: "evchargecontrol",
+          storageBucket: "evchargecontrol.firebasestorage.app",
+          messagingSenderId: "509720101839",
+          appId: "1:509720101839:web:a2525ee67dbd63de0648ba",
+          measurementId: "G-NKKTKNPYPW"
+        };
+        
+        // Initialize Firebase (using Version 8 global 'firebase' object)
+        firebase.initializeApp(firebaseConfig);
+
+        const database = firebase.database();
+        const form = document.getElementById('charging-form');
+        const messageElement = document.getElementById('message');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault(); // Stop the form from reloading the page
+
+            const vehicleNumber = document.getElementById('vehicle_number').value.toUpperCase().trim();
+            const amountPaid = parseFloat(document.getElementById('amount_paid').value);
+            // Using a simple date string that is easy to read
+            const startTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }); 
+
+            if (vehicleNumber && amountPaid) {
+                // WRITE DATA TO FIREBASE: Pushes a new unique entry to the 'requests' node
+                database.ref('requests').push({
+                    vehicle_number: vehicleNumber,
+                    amount_paid: amountPaid,
+                    start_time: startTime
+                })
+                .then(() => {
+                    messageElement.textContent = "✅ Charging session started successfully! Check the dashboard.";
+                    form.reset(); // Clear the form
+                    setTimeout(() => messageElement.textContent = '', 5000); // Clear message after 5 seconds
+                })
+                .catch((error) => {
+                    messageElement.textContent = `❌ Error: ${error.message}`;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
